@@ -1,18 +1,17 @@
-module Chunk.Decode exposing (chunk, chunks)
+module Chunk.Decode exposing (chunksDecoder)
 
 
 import Bytes exposing (Bytes, Endianness(..))
 import Bytes.Decode as Decode exposing
     (Decoder, Step(..), decode, unsignedInt8, unsignedInt32, andThen)
-import Chunk exposing (..)
-
 import Flate exposing (crc32)
 
+import Chunk exposing (..)
 
 
-chunks : Decoder (List Chunk)
-chunks =
-  Decode.loop [] (\cs -> Decode.map (chunkStep cs) chunk)
+chunksDecoder : Decoder (List Chunk)
+chunksDecoder =
+  Decode.loop [] (\cs -> Decode.map (chunkStep cs) chunkDecoder)
 
 
 chunkStep : List Chunk -> Chunk -> Step (List Chunk) (List Chunk)
@@ -25,8 +24,8 @@ chunkStep cs c =
       Loop <| c :: cs
 
 
-chunk : Decoder Chunk
-chunk =
+chunkDecoder : Decoder Chunk
+chunkDecoder =
   unsignedInt32 BE -- data length
     |> andThen rawChunk
     |> andThen verify

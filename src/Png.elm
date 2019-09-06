@@ -4,11 +4,10 @@ module Png exposing (Png, fromBytes, toBytes)
 import Bytes.Decode as Decode exposing
     (Decoder, Step(..), decode, unsignedInt8)
 import Bytes.Encode as Encode exposing (Encoder, encode, sequence)
-
 import Bytes exposing (Bytes)
 
 import Chunk exposing (Chunk)
-import Chunk.Decode
+import Chunk.Decode exposing (chunksDecoder)
 import Chunk.Encode exposing (chunksEncoder)
 
 
@@ -45,7 +44,7 @@ pngDecoder =
   signatureDecoder
     |> Decode.andThen
         (\s -> if s == signature then Decode.succeed s else Decode.fail)
-    |> Decode.andThen (always Chunk.Decode.chunks)
+    |> Decode.andThen (always chunksDecoder)
     |> Decode.andThen (Decode.succeed << Png)
 
 
