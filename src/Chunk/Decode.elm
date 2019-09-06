@@ -37,7 +37,7 @@ rawChunk : Int -> Decoder (Int, Bytes, Int)
 rawChunk length =
   Decode.map2 (\bytes crc -> (length, bytes, crc))
     (Decode.bytes <| length + 4)
-    (unsignedInt32 BE)
+    (unsignedInt32 BE) -- crc
 
 
 verify : (Int, Bytes, Int) -> Decoder (Int, Bytes, Int)
@@ -78,7 +78,7 @@ anciliary : Int -> String -> Int -> Decoder Chunk
 anciliary length chunkType crc =
   Decode.bytes length
     |> andThen
-        (\data -> Decode.succeed <| Chunk length chunkType data crc)
+        (\data -> Decode.succeed <| Chunk chunkType data)
 
 
 ihdr : Decoder Chunk

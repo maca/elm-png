@@ -1,12 +1,15 @@
-module Chunk exposing (..)
+module Chunk exposing (Chunk(..), Dimensions, ColorInfo, Processing)
+
+
 import Bytes exposing (Bytes)
+import Flate exposing (crc32)
 
 
 type Chunk
   = Ihdr Dimensions ColorInfo Processing
   | Idat Bytes
   | Iend
-  | Chunk Int String Bytes Int
+  | Chunk String Bytes
 
 
 type alias Dimensions =

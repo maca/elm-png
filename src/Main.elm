@@ -79,8 +79,17 @@ update msg model =
 
     GotBytes bytes ->
       let
-          _ = Debug.log "files"
+          _ = Debug.log "originalBytes" bytes
+
+          original = Debug.log "pngs"
                 <| List.map Png.fromBytes bytes
+
+          bs = Debug.log "bytes"
+                <| List.map Png.toBytes
+                <| List.filterMap identity original
+
+          new = Debug.log "newPngs"
+                <| List.map Png.fromBytes bs
       in
       ( { model | bytes = bytes }
       , Cmd.none

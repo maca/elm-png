@@ -1,15 +1,28 @@
-module Png exposing (Png, fromBytes)
+module Png exposing (Png, fromBytes, toBytes)
 
 
-import Bytes.Decode as Decode exposing (Decoder, Step(..), unsignedInt8)
+import Bytes.Decode as Decode exposing
+    (Decoder, Step(..), decode, unsignedInt8)
+import Bytes.Encode as Encode exposing (Encoder, encode, sequence)
+
 import Bytes exposing (Bytes)
 
 import Chunk exposing (Chunk)
-import Chunk.Decode exposing (chunks)
-import Chunk.Encode exposing (..)
+import Chunk.Decode
+import Chunk.Encode exposing (chunksEncoder)
 
 
 type Png = Png (List Chunk)
+
+
+fromBytes : Bytes -> Maybe Png
+fromBytes =
+  decode pngDecoder
+
+
+toBytes : Png -> Bytes
+toBytes (Png chunks) =
+  encode <| sequence [ signatureEncoder, chunksEncoder chunks ]
 
 
 signature : List Int
@@ -17,17 +30,22 @@ signature =
   [ 137, 80, 78, 71, 13, 10, 26, 10 ]
 
 
-fromBytes : Bytes -> Maybe Png
-fromBytes =
-  Decode.decode pngDecoder
+signatureEncoder : Encoder
+signatureEncoder =
+  Encode.sequence <| List.map Encode.unsignedInt8 signature
+
+
+signatureDecoder : Decoder (List Int)
+signatureDecoder =
+  listDecoder (List.length signature) unsignedInt8
 
 
 pngDecoder : Decoder Png
 pngDecoder =
-  listDecoder (List.length signature) unsignedInt8
+  signatureDecoder
     |> Decode.andThen
         (\s -> if s == signature then Decode.succeed s else Decode.fail)
-    |> Decode.andThen (always chunks)
+    |> Decode.andThen (always Chunk.Decode.chunks)
     |> Decode.andThen (Decode.succeed << Png)
 
 
