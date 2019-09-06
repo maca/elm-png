@@ -80,7 +80,7 @@ update msg model =
     GotBytes bytes ->
       let
           _ = Debug.log "files"
-                <| List.map decodePng bytes
+                <| List.map Png.fromBytes bytes
       in
       ( { model | bytes = bytes }
       , Cmd.none

@@ -1,32 +1,21 @@
 module Png exposing (..)
 
-import Bytes exposing (Bytes, Endianness(..))
-import Bytes.Decode as Decode exposing
-    (Decoder, Step(..), decode, unsignedInt8)
-import Bytes.Encode as Encode exposing (Encoder)
+import Bytes.Decode as Decode exposing (Decoder)
+
+import Chunk exposing (Chunk)
+import Chunk.Decode exposing (..)
 
 
-type Png = Png
+type Png = Png (List Chunk)
 
 
-signature : List Int
-signature =
-  [ 137, 80, 78, 71, 13, 10, 26, 10 ]
+
+decoder : Decoder Png
+decoder =
+  signatureDecoder
+    |> Decode.andThen chunks
+    |> Decode.andThen (Decode.succeed << Png)
 
 
-signatureDecoder : Decoder (List Int)
-signatureDecoder =
-  Decode.loop (List.length signature, []) (listStep unsignedInt8)
-
-
-listStep : Decoder a -> (Int, List a)
-                     -> Decoder (Step (Int, List a) (List a))
-listStep decoder (n, xs) =
-  if n <= 0 then
-    Decode.succeed (Done <| List.reverse xs)
-  else
-    Decode.map (\x -> Loop (n - 1, x :: xs)) decoder
-
-
-decodePng bytes =
-  decode signatureDecoder bytes
+fromBytes bytes =
+  Decode.decode decoder bytes
