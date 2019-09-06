@@ -4,7 +4,7 @@ import Bytes exposing (Bytes)
 
 type Chunk
   = Ihdr Dimensions ColorInfo Processing
-  | Idat Int String Bytes Int
+  | Idat Bytes
   | Iend
   | Chunk Int String Bytes Int
 

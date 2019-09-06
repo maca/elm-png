@@ -1,34 +1,22 @@
-module Chunk.Decode exposing (..)
+module Chunk.Decode exposing (chunk, chunks)
 
 
 import Bytes exposing (Bytes, Endianness(..))
 import Bytes.Decode as Decode exposing
-    (Decoder, Step(..), decode, unsignedInt8, unsignedInt32)
-import Bytes.Encode as Encode exposing (Encoder)
+    (Decoder, Step(..), decode, unsignedInt8, unsignedInt32, andThen)
 import Chunk exposing (..)
 
+import Flate exposing (crc32)
 
 
-signature : List Int
-signature =
-  [ 137, 80, 78, 71, 13, 10, 26, 10 ]
+
+chunks : Decoder (List Chunk)
+chunks =
+  Decode.loop [] (\cs -> Decode.map (chunkStep cs) chunk)
 
 
-chunks : List Int -> Decoder (List Chunk)
-chunks header =
-  if header == signature then
-    Decode.loop [] chunkStep
-  else
-    Decode.fail
-
-
-chunkStep : List Chunk -> Decoder (Step (List Chunk) (List Chunk))
-chunkStep cs =
-  Decode.map (chunkStepHelp cs) chunk
-
-
-chunkStepHelp : List Chunk -> Chunk -> (Step (List Chunk) (List Chunk))
-chunkStepHelp cs c =
+chunkStep : List Chunk -> Chunk -> Step (List Chunk) (List Chunk)
+chunkStep cs c =
   case c of
     Iend ->
       Done <| List.reverse <| c :: cs
@@ -37,47 +25,70 @@ chunkStepHelp cs c =
       Loop <| c :: cs
 
 
-signatureDecoder : Decoder (List Int)
-signatureDecoder =
-  listDecoder (List.length signature) unsignedInt8
-
-
 chunk : Decoder Chunk
 chunk =
-  Decode.map2 Tuple.pair
+  unsignedInt32 BE -- data length
+    |> andThen rawChunk
+    |> andThen verify
+    |> andThen typedChunk
+
+
+rawChunk : Int -> Decoder (Int, Bytes, Int)
+rawChunk length =
+  Decode.map2 (\bytes crc -> (length, bytes, crc))
+    (Decode.bytes <| length + 4)
     (unsignedInt32 BE)
-    (Decode.string 4)
-      |> Decode.andThen chunkHelp
 
 
-chunkHelp : (Int, String) -> Decoder Chunk
-chunkHelp (length, chunkType) =
-  Decode.map2 (Chunk length chunkType)
-    (Decode.bytes length)
-    (unsignedInt32 BE)
-      |> Decode.andThen chunkMap
+verify : (Int, Bytes, Int) -> Decoder (Int, Bytes, Int)
+verify ((_, bytes, crc) as triple) =
+  if crc == crc32 bytes then
+    Decode.succeed triple
+  else
+    Decode.fail
 
 
-chunkMap : Chunk -> Decoder Chunk
-chunkMap c =
-  case c of
-    Chunk _ "IHDR" bytes _ ->
-      Decode.map3 Ihdr dimensions colorInfo processing
-        |> (\decoder -> decode decoder bytes)
-        |> Maybe.map Decode.succeed
-        |> Maybe.withDefault Decode.fail
+typedChunk : (Int, Bytes, Int) -> Decoder Chunk
+typedChunk (length, bytes, crc) =
+  let
+      decodeChunk decoder =
+        decode (Decode.string 4 |> andThen (always decoder)) bytes
+          |> Maybe.map Decode.succeed
+          |> Maybe.withDefault Decode.fail
 
-    Chunk _ "IDAT" bytes _ ->
-        Decode.succeed c
+  in
+  case decode (Decode.string 4) bytes of
+    Just "IHDR" ->
+      decodeChunk ihdr
 
-    Chunk _ "IEND" _ _ ->
-        Decode.succeed Iend
+    Just "IDAT" ->
+      decodeChunk <| idat length
 
-    Chunk length _ _ _ ->
-        Decode.succeed c
+    Just "IEND" ->
+      Decode.succeed Iend
 
-    _ ->
-        Decode.fail
+    Just chunkType ->
+      decodeChunk <| anciliary length chunkType crc
+
+    Nothing ->
+      Decode.fail
+
+
+anciliary : Int -> String -> Int -> Decoder Chunk
+anciliary length chunkType crc =
+  Decode.bytes length
+    |> andThen
+        (\data -> Decode.succeed <| Chunk length chunkType data crc)
+
+
+ihdr : Decoder Chunk
+ihdr =
+  Decode.map3 Ihdr dimensions colorInfo processing
+
+
+idat : Int -> Decoder Chunk
+idat length =
+  Decode.map Idat (Decode.bytes length)
 
 
 dimensions : Decoder Dimensions
@@ -100,17 +111,3 @@ processing =
     unsignedInt8
     unsignedInt8
     unsignedInt8
-
-
-listDecoder : Int -> Decoder a -> Decoder (List a)
-listDecoder length decoder =
-  Decode.loop (length, []) (step decoder)
-
-
-step : Decoder a -> (Int, List a)
-                 -> Decoder (Step (Int, List a) (List a))
-step decoder (n, xs) =
-  if n <= 0 then
-    Decode.succeed (Done <| List.reverse xs)
-  else
-    Decode.map (\x -> Loop (n - 1, x :: xs)) decoder
