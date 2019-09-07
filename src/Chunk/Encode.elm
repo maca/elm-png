@@ -18,10 +18,10 @@ chunksEncoder cs =
 chunkEncoder : Chunk -> Encoder
 chunkEncoder c =
   case c of
-    Ihdr dimensions colorInfo processing ->
+    Ihdr data ->
       chunkEncoderHelp "IHDR"
         <| encode
-        <| ihdrDataEncoder dimensions colorInfo processing
+        <| ihdrDataEncoder data
 
     Idat data ->
       chunkEncoderHelp "IDAT" data
@@ -46,16 +46,16 @@ chunkEncoderHelp chunkType data =
         ]
 
 
-ihdrDataEncoder : Dimensions -> ColorInfo -> Processing -> Encoder
-ihdrDataEncoder dimensions colorInfo processing =
+ihdrDataEncoder : IhdrData -> Encoder
+ihdrDataEncoder data =
   sequence
-    [ dimensionsEncoder dimensions
-    , colorInfoEncoder colorInfo
-    , processingEncoder processing
+    [ dimensionsEncoder data
+    , colorInfoEncoder data
+    , processingEncoder data
     ]
 
 
-dimensionsEncoder : Dimensions -> Encoder
+dimensionsEncoder : IhdrData -> Encoder
 dimensionsEncoder { width, height } =
   sequence
     [ unsignedInt32 BE width
@@ -63,12 +63,26 @@ dimensionsEncoder { width, height } =
     ]
 
 
-colorInfoEncoder : ColorInfo -> Encoder
-colorInfoEncoder { bitDepth, colorType } =
-  sequence [ unsignedInt8 bitDepth, unsignedInt8 colorType ]
+colorInfoEncoder : IhdrData -> Encoder
+colorInfoEncoder { color } =
+  case color of
+    Grayscale depth ->
+      sequence [ unsignedInt8 depth, unsignedInt8 0 ]
+
+    RGB depth ->
+      sequence [ unsignedInt8 depth, unsignedInt8 2 ]
+
+    Indexed depth ->
+      sequence [ unsignedInt8 depth, unsignedInt8 3 ]
+
+    GrayscaleA depth ->
+      sequence [ unsignedInt8 depth, unsignedInt8 4 ]
+
+    RGBA depth ->
+      sequence [ unsignedInt8 depth, unsignedInt8 6 ]
 
 
-processingEncoder : Processing -> Encoder
+processingEncoder : IhdrData -> Encoder
 processingEncoder { compression, filter, interlace } =
   sequence
     [ unsignedInt8 compression

@@ -82,7 +82,10 @@ anciliary length chunkType crc =
 
 ihdr : Decoder Chunk
 ihdr =
-  Decode.map3 Ihdr dimensions colorInfo processing
+  Decode.map identity (dimensions IhdrData)
+    |> andThen colorInfo
+    |> andThen processing
+    |> andThen (Ihdr >> Decode.succeed)
 
 
 idat : Int -> Decoder Chunk
@@ -90,23 +93,51 @@ idat length =
   Decode.map Idat (Decode.bytes length)
 
 
-dimensions : Decoder Dimensions
-dimensions =
-  Decode.map2 Dimensions
+dimensions data =
+  Decode.map2 data
     (unsignedInt32 BE)
     (unsignedInt32 BE)
 
 
-colorInfo : Decoder ColorInfo
-colorInfo =
-  Decode.map2 ColorInfo
+colorInfo data =
+  Decode.map2 Tuple.pair
+    unsignedInt8
+    unsignedInt8
+      |> andThen color
+      |> andThen (data >> Decode.succeed)
+
+
+processing data =
+  Decode.map3 data
+    unsignedInt8
     unsignedInt8
     unsignedInt8
 
 
-processing : Decoder Processing
-processing =
-  Decode.map3 Processing
-    unsignedInt8
-    unsignedInt8
-    unsignedInt8
+color : (Int, Int) -> Decoder Color
+color (depth, colorType) =
+  let
+      decoder allowed fun =
+        if List.member depth allowed then
+          Decode.succeed <| fun depth
+        else
+          Decode.fail
+  in
+  case colorType of
+    0 ->
+      decoder [ 1, 2, 4, 8, 16 ] Grayscale
+
+    2 ->
+      decoder [ 8, 16 ] RGB
+
+    3 ->
+      decoder [ 1, 2, 4, 8 ] Indexed
+
+    4 ->
+      decoder [ 8, 16 ] GrayscaleA
+
+    6 ->
+      decoder [ 8, 16 ] RGBA
+
+    _ ->
+      Decode.fail

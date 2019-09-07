@@ -81,15 +81,19 @@ update msg model =
       let
           _ = Debug.log "originalBytes" bytes
 
-          original = Debug.log "pngs"
+          pngs = Debug.log "pngs"
                 <| List.map Png.fromBytes bytes
 
-          bs = Debug.log "bytes"
+          bs = Debug.log "processedBytes"
                 <| List.map Png.toBytes
-                <| List.filterMap identity original
+                <| List.filterMap identity pngs
 
           new = Debug.log "newPngs"
                 <| List.map Png.fromBytes bs
+
+          _ = Debug.log "imageData"
+                <| List.map Png.imageData
+                <| List.filterMap identity pngs
       in
       ( { model | bytes = bytes }
       , Cmd.none

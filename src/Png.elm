@@ -1,4 +1,5 @@
-module Png exposing (Png, fromBytes, toBytes)
+-- module Png exposing (Png, fromBytes, toBytes)
+module Png exposing (..)
 
 
 import Bytes.Decode as Decode exposing
@@ -9,6 +10,10 @@ import Bytes exposing (Bytes)
 import Chunk exposing (Chunk)
 import Chunk.Decode exposing (chunksDecoder)
 import Chunk.Encode exposing (chunksEncoder)
+import Image exposing (..)
+
+
+import Flate exposing (inflateZlib, deflateZlib)
 
 
 type Png = Png (List Chunk)
@@ -22,6 +27,14 @@ fromBytes =
 toBytes : Png -> Bytes
 toBytes (Png chunks) =
   encode <| sequence [ signatureEncoder, chunksEncoder chunks ]
+
+
+imageData : Png -> Maybe Bytes
+imageData (Png chunks) =
+  List.filterMap (Chunk.imageData >> Maybe.map Encode.bytes) chunks
+    |> sequence
+    |> encode
+    |> inflateZlib
 
 
 signature : List Int
