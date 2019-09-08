@@ -6,6 +6,7 @@ import Bytes.Decode as Decode exposing
     (Decoder, Step(..), decode, unsignedInt8, unsignedInt16)
 import Bytes.Encode as Encode exposing (Encoder, encode, sequence)
 import Bytes exposing (Bytes, Endianness(..))
+import List.Extra exposing (groupsOf)
 
 
 
@@ -100,13 +101,10 @@ pixels png =
 
 -- imageDataDecoder : IhdrData -> Decoder
 imageDataDecoder ({ height, color, width } as ihdrData) =
-  let
-      decoder =
-        unsignedInt8 -- filterByte
-          |> Decode.andThen (scanlineDecoder ihdrData)
-  in
-  scanlinesDecoder height decoder
-
+  unsignedInt8 -- filterByte
+    |> Decode.andThen (scanlineDecoder ihdrData)
+    |> step
+    |> Decode.loop (height, [])
 
 
 depth : Color -> Int
@@ -124,29 +122,27 @@ channels (Color mode _) =
 
 
 -- scanlineDecoder :  -> Decoder (List a)
-scanlineDecoder { color, width } filterByte =
-  let
-    channelDecoder =
-      case depth color of
-        16 -> unsignedInt16 BE
-        _  -> unsignedInt8
-
-    pixelDecoder =
-      listDecoder (channels color) channelDecoder
-  in
-    Decode.loop (32, []) (step pixelDecoder)
+scanlineDecoder ({ color, width } as ihdrData) filterByte =
+  Decode.loop (width, []) (step unsignedInt8) -- extract bytes
+    |> Decode.andThen (buildPixels ihdrData)
 
 
-scanlinesDecoder : Int -> Decoder a -> Decoder (List a)
-scanlinesDecoder length decoder =
-  Decode.loop (length, []) (scanlineStep decoder)
+buildPixels { color, width } scanline =
+  Decode.succeed <| groupsOf 3 scanline
 
 
-scanlineStep : Decoder a
-             -> (Int, List a)
-             -> Decoder (Step (Int, List a) (List a))
-scanlineStep decoder (n, scanlines) =
+loopWithPrevious : Int -> (Maybe a -> Decoder a) -> Decoder (List a)
+loopWithPrevious length decoder =
+  Decode.loop (length, []) (loopWithPreviousStep decoder)
+
+
+loopWithPreviousStep : (Maybe a -> Decoder a)
+                     -> (Int, List a)
+                     -> Decoder (Step (Int, List a) (List a))
+loopWithPreviousStep decoder (n, xs) =
   if n <= 0 then
-    Decode.succeed (Done <| List.reverse scanlines)
+    List.reverse xs |> Done |> Decode.succeed
   else
-    Decode.map (\s -> Loop (n - 1, s :: scanlines)) decoder
+    Decode.map
+      (\x -> Loop (n - 1, x :: xs))
+      (decoder <| List.head xs)
