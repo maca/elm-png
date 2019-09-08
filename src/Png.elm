@@ -105,6 +105,7 @@ imageDataDecoder ({ height, color, width } as ihdrData) =
     |> Decode.andThen (scanlineDecoder ihdrData)
     |> step
     |> Decode.loop (height, [])
+    |> Decode.andThen (buildPixels ihdrData)
 
 
 depth : Color -> Int
@@ -122,13 +123,13 @@ channels (Color mode _) =
 
 
 -- scanlineDecoder :  -> Decoder (List a)
-scanlineDecoder ({ color, width } as ihdrData) filterByte =
+scanlineDecoder ({ width } as ihdrData) filterByte =
   Decode.loop (width, []) (step unsignedInt8) -- extract bytes
-    |> Decode.andThen (buildPixels ihdrData)
 
 
-buildPixels { color, width } scanline =
-  Decode.succeed <| groupsOf 3 scanline
+buildPixels { color } scanlines =
+  List.map (groupsOf 3) scanlines
+   |> Decode.succeed
 
 
 loopWithPrevious : Int -> (Maybe a -> Decoder a) -> Decoder (List a)
