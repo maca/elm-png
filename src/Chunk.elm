@@ -1,4 +1,5 @@
-module Chunk exposing (Chunk(..), Color(..), IhdrData, imageData)
+module Chunk exposing
+    (Chunk(..), Color(..), ColorMode(..), IhdrData, imageData, ihdrData)
 
 
 import Bytes exposing (Bytes)
@@ -12,21 +13,22 @@ type Chunk
   | Chunk String Bytes
 
 
-type Color
-  = Grayscale Int
-  | RGB Int
-  | Indexed Int
-  | GrayscaleA Int
-  | RGBA Int
+type ColorMode
+  = Grayscale
+  | RGB
+  | Indexed
+  | GrayscaleA
+  | RGBA
+
+
+type Color = Color ColorMode Int
 
 
 type alias IhdrData =
   { width: Int
   , height: Int
   , color: Color
-  , compression: Int
-  , filter: Int
-  , interlace: Int
+  , interlacing: Bool
   }
 
 
@@ -34,4 +36,11 @@ imageData : Chunk -> Maybe Bytes
 imageData chunk =
   case chunk of
     Idat data -> Just data
+    _ -> Nothing
+
+
+ihdrData : Chunk -> Maybe IhdrData
+ihdrData chunk =
+  case chunk of
+    Ihdr data -> Just data
     _ -> Nothing

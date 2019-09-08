@@ -66,26 +66,31 @@ dimensionsEncoder { width, height } =
 colorInfoEncoder : IhdrData -> Encoder
 colorInfoEncoder { color } =
   case color of
-    Grayscale depth ->
+    Color Grayscale depth ->
       sequence [ unsignedInt8 depth, unsignedInt8 0 ]
 
-    RGB depth ->
+    Color RGB depth ->
       sequence [ unsignedInt8 depth, unsignedInt8 2 ]
 
-    Indexed depth ->
+    Color Indexed depth ->
       sequence [ unsignedInt8 depth, unsignedInt8 3 ]
 
-    GrayscaleA depth ->
+    Color GrayscaleA depth ->
       sequence [ unsignedInt8 depth, unsignedInt8 4 ]
 
-    RGBA depth ->
+    Color RGBA depth ->
       sequence [ unsignedInt8 depth, unsignedInt8 6 ]
 
 
 processingEncoder : IhdrData -> Encoder
-processingEncoder { compression, filter, interlace } =
+processingEncoder { interlacing } =
   sequence
-    [ unsignedInt8 compression
-    , unsignedInt8 filter
-    , unsignedInt8 interlace
+    [ unsignedInt8 0
+    , unsignedInt8 0
+    , boolIntEncoder interlacing
     ]
+
+
+boolIntEncoder : Bool -> Encoder
+boolIntEncoder bool =
+  unsignedInt8 <| if bool then 1 else 0

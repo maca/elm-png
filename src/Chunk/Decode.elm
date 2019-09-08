@@ -82,9 +82,11 @@ anciliary length chunkType crc =
 
 ihdr : Decoder Chunk
 ihdr =
-  Decode.map identity (dimensions IhdrData)
+  dimensions IhdrData
     |> andThen colorInfo
-    |> andThen processing
+    |> andThen compression
+    |> andThen filter
+    |> andThen interlacing
     |> andThen (Ihdr >> Decode.succeed)
 
 
@@ -107,11 +109,26 @@ colorInfo data =
       |> andThen (data >> Decode.succeed)
 
 
-processing data =
-  Decode.map3 data
-    unsignedInt8
-    unsignedInt8
-    unsignedInt8
+compression data =
+  unsignedInt8 -- discard since only one value is specified
+    |> andThen (always <| Decode.succeed data)
+
+
+filter = compression -- also discard
+
+
+interlacing data =
+  unsignedInt8
+    |> andThen bool
+    |> andThen (data >> Decode.succeed)
+
+
+bool : Int -> Decoder Bool
+bool i =
+  case i of
+    0 -> Decode.succeed False
+    1 -> Decode.succeed True
+    _ -> Decode.fail
 
 
 color : (Int, Int) -> Decoder Color
@@ -125,19 +142,19 @@ color (depth, colorType) =
   in
   case colorType of
     0 ->
-      decoder [ 1, 2, 4, 8, 16 ] Grayscale
+      decoder [ 1, 2, 4, 8, 16 ] <| Color Grayscale
 
     2 ->
-      decoder [ 8, 16 ] RGB
+      decoder [ 8, 16 ] <| Color RGB
 
     3 ->
-      decoder [ 1, 2, 4, 8 ] Indexed
+      decoder [ 1, 2, 4, 8 ] <| Color Indexed
 
     4 ->
-      decoder [ 8, 16 ] GrayscaleA
+      decoder [ 8, 16 ] <| Color GrayscaleA
 
     6 ->
-      decoder [ 8, 16 ] RGBA
+      decoder [ 8, 16 ] <| Color RGBA
 
     _ ->
       Decode.fail

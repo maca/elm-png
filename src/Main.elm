@@ -9,6 +9,8 @@ import Json.Decode as Decode
 import Task
 
 
+import File.Download as Download
+
 import Png exposing (..)
 
 
@@ -77,27 +79,24 @@ update msg model =
           <| List.map File.toBytes (file :: files)
       )
 
-    GotBytes bytes ->
-      let
-          _ = Debug.log "originalBytes" bytes
+    GotBytes [bytes] ->
+      case Png.fromBytes bytes of
+        Just png ->
+          let
+            _ = Debug.log "originalBytes" bytes
+            _ = Debug.log "png" png
+            _ = Debug.log "png" <| Png.pixels png
+          in
+          ( model
+          , Cmd.none
+          -- , Download.bytes "img.png" "image/png" <| Png.toBytes png
+          )
 
-          pngs = Debug.log "pngs"
-                <| List.map Png.fromBytes bytes
+        Nothing ->
+          ( model, Cmd.none )
 
-          bs = Debug.log "processedBytes"
-                <| List.map Png.toBytes
-                <| List.filterMap identity pngs
-
-          new = Debug.log "newPngs"
-                <| List.map Png.fromBytes bs
-
-          _ = Debug.log "imageData"
-                <| List.map Png.imageData
-                <| List.filterMap identity pngs
-      in
-      ( { model | bytes = bytes }
-      , Cmd.none
-      )
+    GotBytes _ ->
+      ( model, Cmd.none )
 
 
 
