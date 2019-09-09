@@ -6,7 +6,7 @@ import Bytes.Decode as Decode exposing
     (Decoder, Step(..), decode, unsignedInt8, unsignedInt16)
 import Bytes.Encode as Encode exposing (Encoder, encode, sequence)
 import Bytes exposing (Bytes, Endianness(..))
-import List.Extra exposing (groupsOf)
+import List.Extra exposing (groupsOf, getAt)
 
 
 
@@ -92,20 +92,76 @@ pixels png =
   case ihdr png of
     Just ihdrData ->
       imageData png
-        |> Maybe.andThen (decode (imageDataDecoder ihdrData))
+        |> Maybe.andThen (decode (scanlinesDecoder ihdrData))
         |> Maybe.withDefault []
 
     Nothing ->
       []
 
 
--- imageDataDecoder : IhdrData -> Decoder
-imageDataDecoder ({ height, color, width } as ihdrData) =
-  unsignedInt8 -- filterByte
-    |> Decode.andThen (scanlineDecoder ihdrData)
-    |> step
-    |> Decode.loop (height, [])
-    |> Decode.andThen (buildPixels ihdrData)
+scanlinesDecoder ({ width, height, color } as ihdrData) =
+  let
+      scanlineWidth =
+        (pixelWidth color) * width + 1
+  in
+  Decode.loop
+    (height, [])
+    (step <| Decode.loop (scanlineWidth, []) (step unsignedInt8))
+      |> Decode.andThen (scanlinePixels ihdrData)
+
+
+scanlinePixels ihdrData scanlines =
+  List.foldl (revertFilter ihdrData) ([], Nothing) scanlines
+   |> Tuple.first
+   |> List.reverse
+   |> List.map (groupsOf 3)
+   |> Decode.succeed
+
+
+revertFilter ihdrData scanline (acc, unfiltered) =
+  case scanline of
+    filterType :: pixelBytes ->
+      let
+          fun byte bytes =
+            (filter filterType ihdrData unfiltered bytes byte) :: bytes
+
+          reconstructed =
+            List.foldl fun [] pixelBytes |> List.reverse
+      in
+      ( reconstructed :: acc, Just pixelBytes )
+
+    _ ->
+      ( [], Nothing )
+
+
+filter filterType { color} =
+  let
+      filterOffset =
+        if (depth color) < 8 then 1 else channels color
+  in
+  case filterType of
+    0 -> none filterOffset
+    1 -> sub filterOffset
+    _ -> none filterOffset
+
+
+none _ _ _ byte =
+  byte
+
+
+sub offset _ prevBytes byte =
+  (getA offset prevBytes) + byte
+    |> remainderBy 256
+
+
+getA offset prevBytes =
+  getAt (offset - 1) prevBytes
+    |> Maybe.withDefault 0
+
+
+pixelWidth : Color -> Int
+pixelWidth color =
+  (depth color) * (channels color) // 8
 
 
 depth : Color -> Int
@@ -120,30 +176,3 @@ channels (Color mode _) =
     Indexed -> 1
     GrayscaleA -> 2
     RGBA -> 4
-
-
--- scanlineDecoder :  -> Decoder (List a)
-scanlineDecoder ({ width } as ihdrData) filterByte =
-  Decode.loop (width, []) (step unsignedInt8) -- extract bytes
-
-
-buildPixels { color } scanlines =
-  List.map (groupsOf 3) scanlines
-   |> Decode.succeed
-
-
-loopWithPrevious : Int -> (Maybe a -> Decoder a) -> Decoder (List a)
-loopWithPrevious length decoder =
-  Decode.loop (length, []) (loopWithPreviousStep decoder)
-
-
-loopWithPreviousStep : (Maybe a -> Decoder a)
-                     -> (Int, List a)
-                     -> Decoder (Step (Int, List a) (List a))
-loopWithPreviousStep decoder (n, xs) =
-  if n <= 0 then
-    List.reverse xs |> Done |> Decode.succeed
-  else
-    Decode.map
-      (\x -> Loop (n - 1, x :: xs))
-      (decoder <| List.head xs)
