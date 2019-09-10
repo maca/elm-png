@@ -14,7 +14,8 @@ import List.Extra exposing (groupsOf, getAt)
 import Chunk exposing (..)
 import Chunk.Decode exposing (chunksDecoder)
 import Chunk.Encode exposing (chunksEncoder)
-import Image exposing (..)
+import Filter exposing (Filter)
+import PixelInfo exposing (PixelInfo, channels, bitDepth)
 
 
 import Flate exposing (inflateZlib, deflateZlib)
@@ -53,7 +54,7 @@ signatureEncoder =
 
 signatureDecoder : Decoder (List Int)
 signatureDecoder =
-  listDecoder (List.length signature) unsignedInt8
+  list (List.length signature) unsignedInt8
 
 
 pngDecoder : Decoder Png
@@ -65,8 +66,8 @@ pngDecoder =
     |> Decode.andThen (Decode.succeed << Png)
 
 
-listDecoder : Int -> Decoder a -> Decoder (List a)
-listDecoder length decoder =
+list : Int -> Decoder a -> Decoder (List a)
+list length decoder =
   Decode.loop (length, []) (step decoder)
 
 
@@ -79,10 +80,6 @@ step decoder (n, xs) =
     Decode.map (\x -> Loop (n - 1, x :: xs)) decoder
 
 
-
-
-
-
 ihdr : Png -> Maybe IhdrData
 ihdr (Png chunks) =
   chunks |> List.head |> Maybe.andThen Chunk.ihdrData
@@ -92,87 +89,42 @@ pixels png =
   case ihdr png of
     Just ihdrData ->
       imageData png
-        |> Maybe.andThen (decode (scanlinesDecoder ihdrData))
+        |> Maybe.andThen (decode (linesDecoder ihdrData))
         |> Maybe.withDefault []
 
     Nothing ->
       []
 
 
-scanlinesDecoder ({ width, height, color } as ihdrData) =
+linesDecoder ({ height, pixelInfo } as ihdrData) =
+  list height (line ihdrData)
+    |> Decode.andThen (unfilter pixelInfo >> Decode.succeed)
+
+
+line { width, pixelInfo } =
+  Decode.map2 Tuple.pair
+    (Filter.decoder pixelInfo)
+    (list (width * PixelInfo.byteCount pixelInfo) unsignedInt8)
+
+
+unfilter pixelInfo lines =
+  List.foldl unfilterLineStep ([], []) lines
+    |> Tuple.second
+    |> List.foldl (linePixels pixelInfo) []
+
+
+unfilterLineStep (filter, ln) (prevLn, lineList) =
   let
-      scanlineWidth =
-        (pixelWidth color) * width + 1
+      newLn =
+        List.foldl (unfilterByte filter prevLn) [] ln
+          |> List.reverse
   in
-  Decode.loop
-    (height, [])
-    (step <| Decode.loop (scanlineWidth, []) (step unsignedInt8))
-      |> Decode.andThen (scanlinePixels ihdrData)
+  ( ln, newLn :: lineList )
 
 
-scanlinePixels ihdrData scanlines =
-  List.foldl (revertFilter ihdrData) ([], Nothing) scanlines
-   |> Tuple.first
-   |> List.reverse
-   |> List.map (groupsOf 3)
-   |> Decode.succeed
+unfilterByte filter prevLn byte byteList =
+  Filter.revert filter prevLn byteList byte :: byteList
 
 
-revertFilter ihdrData scanline (acc, unfiltered) =
-  case scanline of
-    filterType :: pixelBytes ->
-      let
-          fun byte bytes =
-            (filter filterType ihdrData unfiltered bytes byte) :: bytes
-
-          reconstructed =
-            List.foldl fun [] pixelBytes |> List.reverse
-      in
-      ( reconstructed :: acc, Just pixelBytes )
-
-    _ ->
-      ( [], Nothing )
-
-
-filter filterType { color} =
-  let
-      filterOffset =
-        if (depth color) < 8 then 1 else channels color
-  in
-  case filterType of
-    0 -> none filterOffset
-    1 -> sub filterOffset
-    _ -> none filterOffset
-
-
-none _ _ _ byte =
-  byte
-
-
-sub offset _ prevBytes byte =
-  (getA offset prevBytes) + byte
-    |> remainderBy 256
-
-
-getA offset prevBytes =
-  getAt (offset - 1) prevBytes
-    |> Maybe.withDefault 0
-
-
-pixelWidth : Color -> Int
-pixelWidth color =
-  (depth color) * (channels color) // 8
-
-
-depth : Color -> Int
-depth (Color _ d) = d
-
-
-channels : Color -> Int
-channels (Color mode _) =
-  case mode of
-    Grayscale -> 1
-    RGB -> 3
-    Indexed -> 1
-    GrayscaleA -> 2
-    RGBA -> 4
+linePixels pixelInfo ln lineList =
+  groupsOf 3 ln :: lineList

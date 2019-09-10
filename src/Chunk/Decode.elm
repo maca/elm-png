@@ -6,7 +6,9 @@ import Bytes.Decode as Decode exposing
     (Decoder, Step(..), decode, unsignedInt8, unsignedInt32, andThen)
 import Flate exposing (crc32)
 
+
 import Chunk exposing (..)
+import PixelInfo
 
 
 chunksDecoder : Decoder (List Chunk)
@@ -83,7 +85,7 @@ anciliary length chunkType crc =
 ihdr : Decoder Chunk
 ihdr =
   dimensions IhdrData
-    |> andThen colorInfo
+    |> andThen pixelInfo
     |> andThen compression
     |> andThen filter
     |> andThen interlacing
@@ -101,11 +103,11 @@ dimensions data =
     (unsignedInt32 BE)
 
 
-colorInfo data =
+pixelInfo data =
   Decode.map2 Tuple.pair
     unsignedInt8
     unsignedInt8
-      |> andThen color
+      |> andThen PixelInfo.decoder
       |> andThen (data >> Decode.succeed)
 
 
@@ -131,30 +133,3 @@ bool i =
     _ -> Decode.fail
 
 
-color : (Int, Int) -> Decoder Color
-color (depth, colorType) =
-  let
-      decoder allowed fun =
-        if List.member depth allowed then
-          Decode.succeed <| fun depth
-        else
-          Decode.fail
-  in
-  case colorType of
-    0 ->
-      decoder [ 1, 2, 4, 8, 16 ] <| Color Grayscale
-
-    2 ->
-      decoder [ 8, 16 ] <| Color RGB
-
-    3 ->
-      decoder [ 1, 2, 4, 8 ] <| Color Indexed
-
-    4 ->
-      decoder [ 8, 16 ] <| Color GrayscaleA
-
-    6 ->
-      decoder [ 8, 16 ] <| Color RGBA
-
-    _ ->
-      Decode.fail

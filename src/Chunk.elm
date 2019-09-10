@@ -1,9 +1,10 @@
 module Chunk exposing
-    (Chunk(..), Color(..), ColorMode(..), IhdrData, imageData, ihdrData)
+    (Chunk(..), IhdrData, imageData, ihdrData)
 
 
 import Bytes exposing (Bytes)
 import Flate exposing (crc32)
+import PixelInfo exposing (PixelInfo)
 
 
 type Chunk
@@ -13,21 +14,10 @@ type Chunk
   | Chunk String Bytes
 
 
-type ColorMode
-  = Grayscale
-  | RGB
-  | Indexed
-  | GrayscaleA
-  | RGBA
-
-
-type Color = Color ColorMode Int
-
-
 type alias IhdrData =
   { width: Int
   , height: Int
-  , color: Color
+  , pixelInfo: PixelInfo
   , interlacing: Bool
   }
 

@@ -5,6 +5,9 @@ import Bytes exposing (Bytes, Endianness(..))
 import Bytes.Encode as Encode exposing
     (Encoder, encode, sequence, string, unsignedInt8, unsignedInt32)
 
+
+import PixelInfo
+
 import Chunk exposing (..)
 
 import Flate exposing (crc32)
@@ -47,10 +50,10 @@ chunkEncoderHelp chunkType data =
 
 
 ihdrDataEncoder : IhdrData -> Encoder
-ihdrDataEncoder data =
+ihdrDataEncoder ({ pixelInfo } as data) =
   sequence
     [ dimensionsEncoder data
-    , colorInfoEncoder data
+    , PixelInfo.encoder pixelInfo
     , processingEncoder data
     ]
 
@@ -61,25 +64,6 @@ dimensionsEncoder { width, height } =
     [ unsignedInt32 BE width
     , unsignedInt32 BE height
     ]
-
-
-colorInfoEncoder : IhdrData -> Encoder
-colorInfoEncoder { color } =
-  case color of
-    Color Grayscale depth ->
-      sequence [ unsignedInt8 depth, unsignedInt8 0 ]
-
-    Color RGB depth ->
-      sequence [ unsignedInt8 depth, unsignedInt8 2 ]
-
-    Color Indexed depth ->
-      sequence [ unsignedInt8 depth, unsignedInt8 3 ]
-
-    Color GrayscaleA depth ->
-      sequence [ unsignedInt8 depth, unsignedInt8 4 ]
-
-    Color RGBA depth ->
-      sequence [ unsignedInt8 depth, unsignedInt8 6 ]
 
 
 processingEncoder : IhdrData -> Encoder
