@@ -24,13 +24,26 @@ revert filter prevLn prevBytes byte =
       getA offset prevBytes |> sum byte
 
     Up offset ->
-      Debug.todo "crash"
+      getB prevBytes prevLn |> sum byte
 
     Average offset ->
       Debug.todo "crash"
 
     Paeth offset ->
       Debug.todo "crash"
+
+
+getA offset prevBytes =
+  getAt (offset - 1) prevBytes |> Maybe.withDefault 0
+
+
+getB prevBytes prevLn =
+  getAt ((List.length prevBytes) - 1) prevLn
+    |> Maybe.withDefault 0
+
+
+sum first second =
+  first + second |> remainderBy 256
 
 
 decoder : PixelInfo -> Decoder Filter
@@ -49,11 +62,3 @@ decoder pixelInfo =
           _ -> Decode.fail
   in
       unsignedInt8 |> Decode.andThen dec
-
-
-getA offset prevBytes =
-  getAt (offset - 1) prevBytes |> Maybe.withDefault 0
-
-
-sum first second =
-  first + second |> remainderBy 256

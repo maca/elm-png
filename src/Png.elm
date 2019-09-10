@@ -85,6 +85,7 @@ ihdr (Png chunks) =
   chunks |> List.head |> Maybe.andThen Chunk.ihdrData
 
 
+pixels : Png -> (List (List (List Int)))
 pixels png =
   case ihdr png of
     Just ihdrData ->
@@ -96,35 +97,43 @@ pixels png =
       []
 
 
+linesDecoder : IhdrData -> Decoder (List (List (List Int)))
 linesDecoder ({ height, pixelInfo } as ihdrData) =
   list height (line ihdrData)
     |> Decode.andThen (unfilter pixelInfo >> Decode.succeed)
 
 
+line : IhdrData -> Decoder (Filter, List Int)
 line { width, pixelInfo } =
   Decode.map2 Tuple.pair
     (Filter.decoder pixelInfo)
     (list (width * PixelInfo.byteCount pixelInfo) unsignedInt8)
 
 
+unfilter : PixelInfo -> List (Filter, List Int)
+                     -> List (List (List Int))
 unfilter pixelInfo lines =
   List.foldl unfilterLineStep ([], []) lines
     |> Tuple.second
     |> List.foldl (linePixels pixelInfo) []
 
 
+unfilterLineStep : (Filter, List Int) -> (List Int, (List (List Int)))
+                                      -> (List Int, (List (List Int)))
 unfilterLineStep (filter, ln) (prevLn, lineList) =
-  let
-      newLn =
-        List.foldl (unfilterByte filter prevLn) [] ln
-          |> List.reverse
-  in
-  ( ln, newLn :: lineList )
+  List.foldl (unfilterByte filter prevLn) [] ln
+    |> List.reverse
+    |> (\l -> l :: lineList)
+    |> Tuple.pair ln
 
 
+unfilterByte : Filter -> List Int -> Int -> List Int -> List Int
 unfilterByte filter prevLn byte byteList =
   Filter.revert filter prevLn byteList byte :: byteList
 
 
+linePixels : PixelInfo -> List Int
+                       -> List (List (List Int))
+                       -> List (List (List Int))
 linePixels pixelInfo ln lineList =
   groupsOf 3 ln :: lineList
