@@ -110,26 +110,27 @@ line { width, pixelInfo } =
     (list (width * PixelInfo.byteCount pixelInfo) unsignedInt8)
 
 
-unfilter : PixelInfo -> List (Filter, List Int)
-                     -> List (List (List Int))
+unfilter : PixelInfo -> List (Filter, List Int) -> List (List (List Int))
 unfilter pixelInfo lines =
-  List.foldl unfilterLineStep ([], []) lines
-    |> Tuple.second
+  List.foldl unfilterLineStep [] lines
     |> List.foldl (linePixels pixelInfo) []
 
 
-unfilterLineStep : (Filter, List Int) -> (List Int, (List (List Int)))
-                                      -> (List Int, (List (List Int)))
-unfilterLineStep (filter, ln) (prevLn, lineList) =
+unfilterLineStep : (Filter, List Int) -> List (List Int)
+                                      -> List (List Int)
+unfilterLineStep (filter, ln) lineList =
+  let
+      prevLn =
+        lineList |> List.head |> Maybe.withDefault []
+  in
   List.foldl (unfilterByte filter prevLn) [] ln
     |> List.reverse
     |> (\l -> l :: lineList)
-    |> Tuple.pair ln
 
 
 unfilterByte : Filter -> List Int -> Int -> List Int -> List Int
-unfilterByte filter prevLn byte byteList =
-  Filter.revert filter prevLn byteList byte :: byteList
+unfilterByte filter prevLn byte acc =
+  Filter.revert filter (List.length acc) prevLn acc byte :: acc
 
 
 linePixels : PixelInfo -> List Int

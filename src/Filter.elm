@@ -15,31 +15,46 @@ type Filter
   | Paeth Int
 
 
-revert filter prevLn prevBytes byte =
+revert filter index prevLn prevBytes byte =
   case filter of
     None ->
       byte
 
     Sub offset ->
-      getA offset prevBytes |> sum byte
+      get (offset - 1) prevBytes |> sum byte
 
-    Up offset ->
-      getB prevBytes prevLn |> sum byte
+    Up _ ->
+      get index prevLn |> sum byte
 
     Average offset ->
-      Debug.todo "crash"
+      let
+        a = get (offset - 1) prevBytes
+        b = get index prevLn
+      in
+        sum ((a + b) // 2) byte
 
     Paeth offset ->
-      Debug.todo "crash"
+      let
+        a = get (offset - 1) prevBytes
+        b = get index prevLn
+        c = get (index - offset) prevLn
+        p = a + b - c
+        pa = p - a |> abs
+        pb = p - b |> abs
+        pc = p - c |> abs
+      in
+      if pa <= pb && pa <= pc then
+        sum a byte
+
+      else if pb <= pc then
+        sum b byte
+
+      else
+        sum c byte
 
 
-getA offset prevBytes =
-  getAt (offset - 1) prevBytes |> Maybe.withDefault 0
-
-
-getB prevBytes prevLn =
-  getAt ((List.length prevBytes) - 1) prevLn
-    |> Maybe.withDefault 0
+get index bytes =
+  getAt index bytes |> Maybe.withDefault 0
 
 
 sum first second =
@@ -53,6 +68,9 @@ decoder pixelInfo =
         if (bitDepth pixelInfo) < 8 then 1 else channels pixelInfo
 
       dec filterType =
+        let
+            _ = Debug.log "filter" filterType
+        in
         case filterType of
           0 -> Decode.succeed None
           1 -> Decode.succeed <| Sub offset
