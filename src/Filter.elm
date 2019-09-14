@@ -68,9 +68,6 @@ decoder pixelInfo =
         if (bitDepth pixelInfo) < 8 then 1 else channels pixelInfo
 
       dec filterType =
-        let
-            _ = Debug.log "filter" filterType
-        in
         case filterType of
           0 -> Decode.succeed None
           1 -> Decode.succeed <| Sub offset
