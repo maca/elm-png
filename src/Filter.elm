@@ -1,4 +1,4 @@
-module Filter exposing (..)
+module Filter exposing (Filter, revert, decoder)
 
 
 import Bytes.Decode as Decode exposing (Decoder, unsignedInt8)
@@ -15,7 +15,31 @@ type Filter
   | Paeth Int
 
 
-revert filter index prevLn prevBytes byte =
+
+revert : PixelInfo -> List (Filter, List Int) -> List (List Int)
+revert pixelInfo lines =
+  List.foldl unfilterLine [] lines
+
+
+unfilterLine : (Filter, List Int) -> List (List Int) -> List (List Int)
+unfilterLine (filter, ln) acc =
+  let
+      prevLn =
+        List.head acc |> Maybe.withDefault []
+
+      unfiltered =
+        List.foldl (byteStep filter prevLn) [] ln |> List.reverse
+  in
+  unfiltered :: acc
+
+
+byteStep : Filter -> List Int -> Int -> List Int -> List Int
+byteStep filter prevLn byte acc =
+  revertByte filter (List.length acc) prevLn acc byte :: acc
+
+
+revertByte : Filter -> Int -> (List Int) -> List Int -> Int -> Int
+revertByte filter index prevLn prevBytes byte =
   case filter of
     None ->
       byte
@@ -53,10 +77,12 @@ revert filter index prevLn prevBytes byte =
         sum c byte
 
 
+get : Int -> List Int -> Int
 get index bytes =
   getAt index bytes |> Maybe.withDefault 0
 
 
+sum : Int -> Int -> Int
 sum first second =
   first + second |> remainderBy 256
 

@@ -9,6 +9,11 @@ list length decoder =
   Decode.loop (length, []) (step decoder)
 
 
+iterate : List a -> (a -> Decoder b) -> Decoder (List b)
+iterate xs decoder =
+  Decode.loop (xs, []) (iterStep decoder)
+
+
 step : Decoder a -> (Int, List a)
                  -> Decoder (Step (Int, List a) (List a))
 step decoder (n, xs) =

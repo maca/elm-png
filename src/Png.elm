@@ -11,7 +11,7 @@ import List.Extra exposing (groupsOf, getAt)
 
 
 import Adam7 exposing (passDimensions, mergePasses)
-import Chunk exposing (..)
+import Chunk exposing (Chunk, IhdrData)
 import Chunk.Decode exposing (chunksDecoder)
 import Chunk.Encode exposing (chunksEncoder)
 import Filter exposing (Filter)
@@ -19,7 +19,7 @@ import Image exposing (Image)
 import Matrix exposing (Dimensions)
 import Pixel exposing (Pixel)
 import PixelInfo exposing (PixelInfo, channels, bitDepth)
-import Decode.Loop exposing (..)
+import Decode.Loop exposing (list, iterate)
 import Png.Signature as Signature exposing (..)
 
 
@@ -58,9 +58,9 @@ toImage png =
 
 
 deinterlace pixelInfo dimensions =
-  Decode.loop ( List.range 0 6, [] )
-    (iterStep <| passDecoder pixelInfo dimensions)
-       |> Decode.andThen (mergePasses dimensions >> Decode.succeed)
+  passDecoder pixelInfo dimensions
+    |> iterate (List.range 0 6)
+    |> Decode.andThen (mergePasses dimensions >> Decode.succeed)
 
 
 passDecoder : PixelInfo -> Dimensions -> Int -> Decoder Image
@@ -70,10 +70,15 @@ passDecoder pixelInfo dimensions n =
 
 image : PixelInfo -> Dimensions -> Decoder Image
 image pixelInfo ({ height } as dimensions) =
+  let
+      process =
+        Filter.revert pixelInfo
+          >> List.foldr (appendPixels pixelInfo) Array.empty
+          >> Image.fromArray dimensions
+          >> Decode.succeed
+  in
   list height (line dimensions pixelInfo)
-    |> Decode.andThen
-       (unfilter pixelInfo >> Image.fromArray dimensions
-                           >> Decode.succeed)
+    |> Decode.andThen process
 
 
 line : Dimensions -> PixelInfo -> Decoder (Filter, List Int)
@@ -83,34 +88,11 @@ line { width } pixelInfo =
     (list (width * PixelInfo.byteCount pixelInfo) unsignedInt8)
 
 
-unfilter : PixelInfo -> List (Filter, List Int) -> Array Pixel
-unfilter pixelInfo lines =
-  List.foldl unfilterLine [] lines
-    |> List.foldr (appendPixels pixelInfo) Array.empty
-
-
-unfilterLine : (Filter, List Int) -> List (List Int) -> List (List Int)
-unfilterLine (filter, ln) acc =
-  let
-      prevLn =
-        List.head acc |> Maybe.withDefault []
-
-      unfiltered =
-        List.foldl (unfilterByte filter prevLn) [] ln |> List.reverse
-  in
-  unfiltered :: acc
-
-
-unfilterByte : Filter -> List Int -> Int -> List Int -> List Int
-unfilterByte filter prevLn byte acc =
-  Filter.revert filter (List.length acc) prevLn acc byte :: acc
-
-
 appendPixels : PixelInfo -> List Int -> Array Pixel -> Array Pixel
-appendPixels pixelInfo ln pxs =
+appendPixels pixelInfo ln acc =
   groupsOf 3 ln
     |> Array.fromList
-    |> Array.append pxs
+    |> Array.append acc
 
 
 imageData : Png -> Maybe Bytes
