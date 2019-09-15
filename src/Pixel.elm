@@ -1,4 +1,11 @@
-module Pixel exposing (Pixel, blank)
+module Pixel exposing (Pixel, blank, group)
+
+
+import Array exposing (Array)
+import List.Extra exposing (groupsOf)
+
+
+import PixelInfo exposing (PixelInfo, channels, bitDepth)
 
 
 type alias Pixel
@@ -7,3 +14,8 @@ type alias Pixel
 
 blank : Pixel
 blank = [0, 0, 0]
+
+
+group : PixelInfo -> List Int -> Array Pixel
+group pixelInfo ln =
+  groupsOf 3 ln |> Array.fromList

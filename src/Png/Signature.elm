@@ -20,3 +20,5 @@ encoder =
 decoder : Decoder (List Int)
 decoder =
   list (List.length signature) unsignedInt8
+    |> Decode.andThen
+        (\s -> if s == signature then Decode.succeed s else Decode.fail)
