@@ -8,6 +8,7 @@ import Flate exposing (crc32)
 
 
 import Chunk exposing (..)
+import Matrix exposing (Dimensions)
 import PixelInfo
 
 
@@ -88,7 +89,7 @@ ihdr =
     |> andThen pixelInfo
     |> andThen compression
     |> andThen filter
-    |> andThen interlacing
+    |> andThen interlaced
     |> andThen (Ihdr >> Decode.succeed)
 
 
@@ -98,9 +99,10 @@ idat length =
 
 
 dimensions data =
-  Decode.map2 data
+  Decode.map2 Dimensions
     (unsignedInt32 BE)
     (unsignedInt32 BE)
+      |> andThen (data >> Decode.succeed)
 
 
 pixelInfo data =
@@ -119,7 +121,7 @@ compression data =
 filter = compression -- also discard
 
 
-interlacing data =
+interlaced data =
   unsignedInt8
     |> andThen bool
     |> andThen (data >> Decode.succeed)
@@ -131,5 +133,3 @@ bool i =
     0 -> Decode.succeed False
     1 -> Decode.succeed True
     _ -> Decode.fail
-
-

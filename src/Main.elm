@@ -85,7 +85,7 @@ update msg model =
           let
             _ = Debug.log "originalBytes" bytes
             _ = Debug.log "png" png
-            _ = Debug.log "png" <| Png.pixels png
+            _ = Debug.log "png" <| Png.toImage png
           in
           ( model
           , Cmd.none

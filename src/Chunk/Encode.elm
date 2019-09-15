@@ -4,13 +4,12 @@ module Chunk.Encode exposing (chunksEncoder)
 import Bytes exposing (Bytes, Endianness(..))
 import Bytes.Encode as Encode exposing
     (Encoder, encode, sequence, string, unsignedInt8, unsignedInt32)
+import Flate exposing (crc32)
 
-
-import PixelInfo
 
 import Chunk exposing (..)
-
-import Flate exposing (crc32)
+import Matrix exposing (Dimensions)
+import PixelInfo
 
 
 chunksEncoder : List Chunk -> Encoder
@@ -50,15 +49,15 @@ chunkEncoderHelp chunkType data =
 
 
 ihdrDataEncoder : IhdrData -> Encoder
-ihdrDataEncoder ({ pixelInfo } as data) =
+ihdrDataEncoder ({ dimensions, pixelInfo } as data) =
   sequence
-    [ dimensionsEncoder data
+    [ dimensionsEncoder dimensions
     , PixelInfo.encoder pixelInfo
     , processingEncoder data
     ]
 
 
-dimensionsEncoder : IhdrData -> Encoder
+dimensionsEncoder : Dimensions -> Encoder
 dimensionsEncoder { width, height } =
   sequence
     [ unsignedInt32 BE width
@@ -67,11 +66,11 @@ dimensionsEncoder { width, height } =
 
 
 processingEncoder : IhdrData -> Encoder
-processingEncoder { interlacing } =
+processingEncoder { interlaced } =
   sequence
     [ unsignedInt8 0
     , unsignedInt8 0
-    , boolIntEncoder interlacing
+    , boolIntEncoder interlaced
     ]
 
 

@@ -7,6 +7,9 @@ import Flate exposing (crc32)
 import PixelInfo exposing (PixelInfo)
 
 
+import Matrix exposing (Dimensions)
+
+
 type Chunk
   = Ihdr IhdrData
   | Idat Bytes
@@ -15,10 +18,9 @@ type Chunk
 
 
 type alias IhdrData =
-  { width: Int
-  , height: Int
+  { dimensions: Dimensions
   , pixelInfo: PixelInfo
-  , interlacing: Bool
+  , interlaced: Bool
   }
 
 

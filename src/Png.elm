@@ -2,20 +2,25 @@
 module Png exposing (..)
 
 
+import Array exposing (Array)
 import Bytes.Decode as Decode exposing
-    (Decoder, Step(..), decode, unsignedInt8, unsignedInt16)
+    (Decoder, Step(..), unsignedInt8, unsignedInt16)
 import Bytes.Encode as Encode exposing (Encoder, encode, sequence)
 import Bytes exposing (Bytes, Endianness(..))
 import List.Extra exposing (groupsOf, getAt)
 
 
-
--- import Chunk exposing (Chunk, IhdrData)
+import Adam7 exposing (passDimensions, mergePasses)
 import Chunk exposing (..)
 import Chunk.Decode exposing (chunksDecoder)
 import Chunk.Encode exposing (chunksEncoder)
 import Filter exposing (Filter)
+import Image exposing (Image)
+import Matrix exposing (Dimensions)
+import Pixel exposing (Pixel)
 import PixelInfo exposing (PixelInfo, channels, bitDepth)
+import Decode.Loop exposing (..)
+import Png.Signature as Signature exposing (..)
 
 
 import Flate exposing (inflateZlib, deflateZlib)
@@ -26,12 +31,86 @@ type Png = Png (List Chunk)
 
 fromBytes : Bytes -> Maybe Png
 fromBytes =
-  decode pngDecoder
+  Decode.decode pngDecoder
 
 
 toBytes : Png -> Bytes
 toBytes (Png chunks) =
-  encode <| sequence [ signatureEncoder, chunksEncoder chunks ]
+  sequence [ Signature.encoder, chunksEncoder chunks ] |> encode
+
+
+toImage : Png -> Maybe Image
+toImage png =
+  case ihdr png of
+    Just ({ dimensions, pixelInfo, interlaced } as ihdrData) ->
+      let
+          decoder =
+            if interlaced then
+              deinterlace pixelInfo dimensions
+
+            else
+              image pixelInfo dimensions
+      in
+      imageData png |> Maybe.andThen (Decode.decode decoder)
+
+    Nothing ->
+      Nothing
+
+
+deinterlace pixelInfo dimensions =
+  Decode.loop ( List.range 0 6, [] )
+    (iterStep <| passDecoder pixelInfo dimensions)
+       |> Decode.andThen (mergePasses dimensions >> Decode.succeed)
+
+
+passDecoder : PixelInfo -> Dimensions -> Int -> Decoder Image
+passDecoder pixelInfo dimensions n =
+  image pixelInfo (Adam7.passDimensions n dimensions)
+
+
+image : PixelInfo -> Dimensions -> Decoder Image
+image pixelInfo ({ height } as dimensions) =
+  list height (line dimensions pixelInfo)
+    |> Decode.andThen
+       (unfilter pixelInfo >> Image.fromArray dimensions
+                           >> Decode.succeed)
+
+
+line : Dimensions -> PixelInfo -> Decoder (Filter, List Int)
+line { width } pixelInfo =
+  Decode.map2 Tuple.pair
+    (Filter.decoder pixelInfo)
+    (list (width * PixelInfo.byteCount pixelInfo) unsignedInt8)
+
+
+unfilter : PixelInfo -> List (Filter, List Int) -> Array Pixel
+unfilter pixelInfo lines =
+  List.foldl unfilterLine [] lines
+    |> List.foldr (appendPixels pixelInfo) Array.empty
+
+
+unfilterLine : (Filter, List Int) -> List (List Int) -> List (List Int)
+unfilterLine (filter, ln) acc =
+  let
+      prevLn =
+        List.head acc |> Maybe.withDefault []
+
+      unfiltered =
+        List.foldl (unfilterByte filter prevLn) [] ln |> List.reverse
+  in
+  unfiltered :: acc
+
+
+unfilterByte : Filter -> List Int -> Int -> List Int -> List Int
+unfilterByte filter prevLn byte acc =
+  Filter.revert filter (List.length acc) prevLn acc byte :: acc
+
+
+appendPixels : PixelInfo -> List Int -> Array Pixel -> Array Pixel
+appendPixels pixelInfo ln pxs =
+  groupsOf 3 ln
+    |> Array.fromList
+    |> Array.append pxs
 
 
 imageData : Png -> Maybe Bytes
@@ -42,99 +121,15 @@ imageData (Png chunks) =
     |> inflateZlib
 
 
-signature : List Int
-signature =
-  [ 137, 80, 78, 71, 13, 10, 26, 10 ]
-
-
-signatureEncoder : Encoder
-signatureEncoder =
-  Encode.sequence <| List.map Encode.unsignedInt8 signature
-
-
-signatureDecoder : Decoder (List Int)
-signatureDecoder =
-  list (List.length signature) unsignedInt8
-
-
 pngDecoder : Decoder Png
 pngDecoder =
-  signatureDecoder
+  Signature.decoder
     |> Decode.andThen
         (\s -> if s == signature then Decode.succeed s else Decode.fail)
     |> Decode.andThen (always chunksDecoder)
-    |> Decode.andThen (Decode.succeed << Png)
-
-
-list : Int -> Decoder a -> Decoder (List a)
-list length decoder =
-  Decode.loop (length, []) (step decoder)
-
-
-step : Decoder a -> (Int, List a)
-                 -> Decoder (Step (Int, List a) (List a))
-step decoder (n, xs) =
-  if n <= 0 then
-    Decode.succeed (Done <| List.reverse xs)
-  else
-    Decode.map (\x -> Loop (n - 1, x :: xs)) decoder
+    |> Decode.andThen (Png >> Decode.succeed)
 
 
 ihdr : Png -> Maybe IhdrData
 ihdr (Png chunks) =
   chunks |> List.head |> Maybe.andThen Chunk.ihdrData
-
-
-pixels : Png -> (List (List (List Int)))
-pixels png =
-  case ihdr png of
-    Just ihdrData ->
-      imageData png
-        |> Maybe.andThen (decode (linesDecoder ihdrData))
-        |> Maybe.withDefault []
-
-    Nothing ->
-      []
-
-
-linesDecoder : IhdrData -> Decoder (List (List (List Int)))
-linesDecoder ({ height, pixelInfo } as ihdrData) =
-  list height (line ihdrData)
-    |> Decode.andThen (unfilter pixelInfo >> Decode.succeed)
-
-
-line : IhdrData -> Decoder (Filter, List Int)
-line { width, pixelInfo } =
-  Decode.map2 Tuple.pair
-    (Filter.decoder pixelInfo)
-    (list (width * PixelInfo.byteCount pixelInfo) unsignedInt8)
-
-
-unfilter : PixelInfo -> List (Filter, List Int) -> List (List (List Int))
-unfilter pixelInfo lines =
-  List.foldl unfilterLineStep [] lines
-    |> List.foldl (linePixels pixelInfo) []
-
-
-unfilterLineStep : (Filter, List Int) -> List (List Int)
-                                      -> List (List Int)
-unfilterLineStep (filter, ln) lineList =
-  let
-      prevLn =
-        lineList |> List.head |> Maybe.withDefault []
-  in
-  List.foldl (unfilterByte filter prevLn) [] ln
-    |> List.reverse
-    |> (\l -> l :: lineList)
-
-
-unfilterByte : Filter -> List Int -> Int -> List Int -> List Int
-unfilterByte filter prevLn byte acc =
-  Filter.revert filter (List.length acc) prevLn acc byte :: acc
-
-
-linePixels : PixelInfo -> List Int
-                       -> List (List (List Int))
-                       -> List (List (List Int))
-linePixels pixelInfo ln lineList =
-  groupsOf 3 ln :: lineList
