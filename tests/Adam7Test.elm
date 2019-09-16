@@ -1,4 +1,4 @@
-module Adam7Test exposing (..)
+module Adam7Test exposing (suite)
 
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer, int, list, string)

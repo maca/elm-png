@@ -1,5 +1,7 @@
 module PixelInfo exposing
-  ( PixelInfo
+  ( PixelInfo(..)
+  , Mode(..)
+  , initialize
   , byteCount
   , bitDepth
   , channels
@@ -20,8 +22,34 @@ type Mode
   | RGBA
 
 
-type PixelInfo = PixelInfo Mode Int
+type PixelInfo
+  = PixelInfo Mode Int
 
+
+initialize : Mode -> Int -> PixelInfo
+initialize mode depth =
+  let
+      build allowed =
+        if List.member depth allowed then
+          PixelInfo mode depth
+        else
+          PixelInfo RGBA 8
+  in
+  case mode of
+    Grayscale ->
+      build [ 1, 2, 4, 8, 16 ]
+
+    RGB ->
+      build [ 8, 16 ]
+
+    Indexed ->
+      build [ 1, 2, 4, 8 ]
+
+    GrayscaleAlpha ->
+      build [ 8, 16 ]
+
+    RGBA ->
+      build [ 8, 16 ]
 
 
 bitDepth : PixelInfo -> Int
@@ -65,27 +93,14 @@ encoder color =
 decoder : (Int, Int) -> Decoder PixelInfo
 decoder (depth, pixelInfoType) =
   let
-      dec allowed fun =
-        if List.member depth allowed then
-          Decode.succeed <| fun depth
-        else
-          Decode.fail
+      dec mode =
+        initialize mode depth
+          |> Decode.succeed
   in
   case pixelInfoType of
-    0 ->
-      dec [ 1, 2, 4, 8, 16 ] <| PixelInfo Grayscale
-
-    2 ->
-      dec [ 8, 16 ] <| PixelInfo RGB
-
-    3 ->
-      dec [ 1, 2, 4, 8 ] <| PixelInfo Indexed
-
-    4 ->
-      dec [ 8, 16 ] <| PixelInfo GrayscaleAlpha
-
-    6 ->
-      dec [ 8, 16 ] <| PixelInfo RGBA
-
-    _ ->
-      Decode.fail
+    0 -> Grayscale |> dec
+    2 -> RGB |> dec
+    3 -> Indexed |> dec
+    4 -> GrayscaleAlpha |> dec
+    6 -> RGBA |> dec
+    _ -> Decode.fail

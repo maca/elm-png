@@ -1,5 +1,4 @@
--- module Png exposing (Png, fromBytes, toBytes)
-module Png exposing (..)
+module Png exposing (Png, fromBytes, toBytes, toImage)
 
 
 import Array exposing (Array)
@@ -67,15 +66,15 @@ deinterlace pixelInfo dimensions =
       passDecoder n =
         image pixelInfo (Adam7.passDimensions n dimensions)
   in
-    iterate (List.range 0 6) passDecoder
-      |> Decode.andThen (mergePasses dimensions >> Decode.succeed)
+  iterate (List.range 0 6) passDecoder
+    |> Decode.andThen (mergePasses dimensions >> Decode.succeed)
 
 
 image : PixelInfo -> Dimensions -> Decoder Image
 image pixelInfo ({ height } as dimensions) =
   let
       pixels ln acc =
-        Pixel.group pixelInfo ln |> Array.append acc
+        Pixel.pixelArray pixelInfo ln |> Array.append acc
 
       process =
         Filter.revert pixelInfo
