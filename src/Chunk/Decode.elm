@@ -4,6 +4,7 @@ module Chunk.Decode exposing (chunksDecoder)
 import Bytes exposing (Bytes, Endianness(..))
 import Bytes.Decode as Decode exposing
     (Decoder, Step(..), decode, unsignedInt8, unsignedInt32, andThen)
+import Flate exposing (crc32)
 
 
 import Chunk exposing (Chunk(..), IhdrData)
