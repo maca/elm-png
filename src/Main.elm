@@ -34,12 +34,13 @@ main =
 type alias Model =
   { hover : Bool
   , bytes : List Bytes
+  , url : String
   }
 
 
 init : () -> (Model, Cmd Msg)
 init _ =
-  (Model False [], Cmd.none)
+  (Model False [] "", Cmd.none)
 
 
 
@@ -83,14 +84,20 @@ update msg model =
       case Png.fromBytes bytes of
         Just png ->
           let
-            _ = Debug.log "originalBytes" bytes
-            _ = Debug.log "png" png
-            _ = Debug.log "png" <| Png.toImage png
+            -- _ = Debug.log "originalBytes" bytes
+            -- _ = Debug.log "png" png
+            -- _ = Debug.log "image" <| Png.toImage png
+            -- _ = Debug.log "image2"
+            --     <| Maybe.map (Png.fromImage >> Png.toImage)
+            --     <| Png.toImage png
+
+            url =
+              Png.toImage png
+                |> Maybe.map (Png.fromImage >> Png.toUrl)
+                |> Maybe.withDefault ""
+
           in
-          ( model
-          , Cmd.none
-          -- , Download.bytes "img.png" "image/png" <| Png.toBytes png
-          )
+          ( { model | url = url }, Cmd.none )
 
         Nothing ->
           ( model, Cmd.none )
@@ -130,22 +137,14 @@ view model =
     , hijackOn "drop" dropDecoder
     ]
     [ button [ onClick Pick ] [ text "Upload Images" ]
-    -- , div
-    --     [ style "display" "flex"
-    --     , style "align-items" "center"
-    --     , style "height" "60px"
-    --     , style "padding" "20px"
-    --     ]
-    --     []
+    , img [ src model.url ] [ ]
     ]
 
 
 -- viewPreview : String -> Html msg
 -- viewPreview url =
 --   div
---     [ style "width" "60px"
---     , style "height" "60px"
---     , style "background-image" ("url('" ++ url ++ "')")
+--     [ style "background-image" ("url('" ++ url ++ "')")
 --     , style "background-position" "center"
 --     , style "background-repeat" "no-repeat"
 --     , style "background-size" "contain"

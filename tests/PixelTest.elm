@@ -55,5 +55,3 @@ getColors =
         |> Pixel.alpha
         |> Expect.equal int
     ]
-
-

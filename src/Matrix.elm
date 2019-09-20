@@ -8,6 +8,7 @@ module Matrix exposing
   , set
   , dimensions
   , positionFromIndex
+  , foldLines
   )
 
 
@@ -30,8 +31,9 @@ repeat ({ width, height } as dims) a =
 
 
 fromArray : Dimensions -> Array a -> Matrix a
-fromArray dims array =
-  Matrix dims array
+fromArray ({ width, height } as dims) array =
+  Array.slice 0 (width * height) array
+    |> Matrix dims
 
 
 toArray : Matrix a -> (Array a)
@@ -45,16 +47,35 @@ dimensions (Matrix dims _) =
 
 
 get : (Int, Int) -> Matrix a -> Maybe a
-get ( x, y ) (Matrix { width } ps) =
-  Array.get (y * width + x) ps
+get ( x, y ) (Matrix { width } array) =
+  Array.get (y * width + x) array
 
 
 set : (Int, Int) -> a -> Matrix a -> Matrix a
-set ( x, y ) pixel (Matrix ({ width } as dims) ps) =
-  Array.set (y * width + x) pixel ps
+set ( x, y ) pixel (Matrix ({ width } as dims) array) =
+  Array.set (y * width + x) pixel array
     |> fromArray dims
 
 
 positionFromIndex : Dimensions -> Int -> ( Int, Int )
 positionFromIndex { width } idx =
   ( remainderBy width idx, idx // width )
+
+
+foldLines : (Array a -> b) -> Matrix a -> List b
+foldLines fun (Matrix { width } array) =
+  foldLinesHelp fun width array []
+    |> List.reverse
+
+
+foldLinesHelp : (Array a -> b) -> Int -> Array a -> List b -> List b
+foldLinesHelp fun width array acc =
+  let
+      length = Array.length array
+      slice = Array.slice 0 width array
+      rest = Array.slice width length array
+  in
+  if length > 0 then
+    foldLinesHelp fun width rest <| fun slice :: acc
+  else
+    acc

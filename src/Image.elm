@@ -6,12 +6,15 @@ module Image exposing
   , dimensions
   , get
   , set
+  , foldLines
   )
 
 
 import Array exposing (Array)
 import Matrix exposing (Matrix, Dimensions)
 import Pixel exposing (Pixel, blank)
+import Bytes exposing (Bytes)
+import Bytes.Encode exposing (Encoder, encode, sequence, unsignedInt8)
 
 
 type Image
@@ -51,3 +54,8 @@ set position pixel image =
 toMatrix : Image -> Matrix Pixel
 toMatrix (Image matrix) =
   matrix
+
+
+foldLines : (Array Pixel -> b) -> Image -> List b
+foldLines fun (Image matrix) =
+  Matrix.foldLines fun matrix

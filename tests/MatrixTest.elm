@@ -1,4 +1,4 @@
-module MatrixTest exposing (..)
+module MatrixTest exposing (suite)
 
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer, int, list, string)
@@ -16,6 +16,8 @@ suite =
     [ describeGet
     , describeSet
     , describeIndexToPositionFor3x3Matrix
+    , describeFromArray
+    , describeFoldLines
     ]
 
 
@@ -112,3 +114,34 @@ describeIndexToPositionFor3x5Matrix =
         , test "get position for 14" <| \_ ->
           positionFromIndex dimensions 14 |> Expect.equal ( 2, 4 )
         ]
+
+
+describeFromArray =
+  let
+      array9 = Array.repeat 9 Nothing
+  in
+  describe "initialize matrix from array"
+    [ test "initializes when array has the correct length" <| \_ ->
+        Matrix.fromArray { width = 3, height = 3 } array9
+          |> Matrix.toArray
+          |> Expect.equal array9
+
+    , test "truncates when array exceeds length" <| \_ ->
+        Array.repeat 10 Nothing
+          |> Matrix.fromArray { width = 3, height = 3 }
+          |> Matrix.toArray
+          |> Expect.equal array9
+    ]
+
+
+describeFoldLines =
+  let
+      matrix =
+        Array.initialize 9 identity
+          |> Matrix.fromArray { width = 3, height = 3 }
+  in
+  describe "fold over matrix lines"
+    [ test "folds lines over to a list" <| \_ ->
+        Matrix.foldLines Array.toList matrix
+          |> Expect.equal [[ 0, 1, 2 ], [ 3, 4, 5 ], [ 6, 7, 8 ]]
+    ]
