@@ -1,4 +1,4 @@
-module Decode.Loop exposing (..)
+module Decode.Loop exposing (list, iterate)
 
 
 import Bytes.Decode as Decode exposing (Decoder, Step(..))

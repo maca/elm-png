@@ -1,10 +1,10 @@
 module Png exposing (Png, fromBytes, toBytes, toImage)
 
 
-import Array exposing (Array)
+import Array
 import Bytes.Decode as Decode exposing
-    (Decoder, Step(..), unsignedInt8, unsignedInt16)
-import Bytes.Encode as Encode exposing (Encoder, encode, sequence)
+    (Decoder, Step(..), unsignedInt8)
+import Bytes.Encode as Encode exposing (encode, sequence)
 import Bytes exposing (Bytes, Endianness(..))
 
 
@@ -15,13 +15,13 @@ import Chunk.Encode exposing (chunksEncoder)
 import Filter exposing (Filter)
 import Image exposing (Image)
 import Matrix exposing (Dimensions)
-import Pixel exposing (Pixel)
-import PixelInfo exposing (PixelInfo, channels, bitDepth)
+import PixelArray
+import PixelInfo exposing (PixelInfo)
 import Decode.Loop exposing (list, iterate)
 import Png.Signature as Signature
 
 
-import Flate exposing (inflateZlib, deflateZlib)
+import Flate exposing (inflateZlib)
 
 
 type Png = Png (List Chunk)
@@ -51,7 +51,7 @@ toImage png =
       in
       imageData png |> Maybe.andThen (Decode.decode decoder)
 
-    Nothing ->
+    _ ->
       Nothing
 
 
@@ -74,7 +74,7 @@ image : PixelInfo -> Dimensions -> Decoder Image
 image pixelInfo ({ height } as dimensions) =
   let
       pixels ln acc =
-        Pixel.pixelArray pixelInfo ln |> Array.append acc
+        PixelArray.initialize pixelInfo ln |> Array.append acc
 
       process =
         Filter.revert pixelInfo

@@ -4,10 +4,9 @@ module Chunk.Decode exposing (chunksDecoder)
 import Bytes exposing (Bytes, Endianness(..))
 import Bytes.Decode as Decode exposing
     (Decoder, Step(..), decode, unsignedInt8, unsignedInt32, andThen)
-import Flate exposing (crc32)
 
 
-import Chunk exposing (..)
+import Chunk exposing (Chunk(..), IhdrData)
 import Matrix exposing (Dimensions)
 import PixelInfo
 
@@ -77,7 +76,7 @@ typedChunk (length, bytes, crc) =
 
 
 anciliary : Int -> String -> Int -> Decoder Chunk
-anciliary length chunkType crc =
+anciliary length chunkType _ =
   Decode.bytes length
     |> andThen
         (\data -> Decode.succeed <| Chunk chunkType data)

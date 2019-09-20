@@ -7,7 +7,7 @@ import Bytes.Encode as Encode exposing
 import Flate exposing (crc32)
 
 
-import Chunk exposing (..)
+import Chunk exposing (Chunk(..), IhdrData)
 import Matrix exposing (Dimensions)
 import PixelInfo
 

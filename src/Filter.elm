@@ -17,7 +17,7 @@ type Filter
 
 
 revert : PixelInfo -> List (Filter, List Int) -> List (List Int)
-revert pixelInfo lines =
+revert _ lines =
   List.foldl unfilterLine [] lines
 
 
@@ -91,7 +91,7 @@ decoder : PixelInfo -> Decoder Filter
 decoder pixelInfo =
   let
       offset =
-        if (bitDepth pixelInfo) < 8 then 1 else channels pixelInfo
+        if bitDepth pixelInfo < 8 then 1 else channels pixelInfo
 
       dec filterType =
         case filterType of

@@ -2,8 +2,6 @@ module PixelArray exposing (initialize)
 
 
 import Array exposing (Array)
-import Bitwise exposing (shiftRightBy)
-import List.Extra exposing (getAt)
 
 
 import Pixel exposing (Pixel, fromList)
@@ -44,7 +42,7 @@ keepSignificant acc xs =
 
 
 pixelArrayHelp : Int -> List Int -> Pixel
-pixelArrayHelp bitDepth ints =
+pixelArrayHelp _ ints =
   case ints of
     [r, g, b] ->
       Pixel.fromList [r, g, b, 255]

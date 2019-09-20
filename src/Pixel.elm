@@ -13,13 +13,7 @@ module Pixel exposing
     , toList
     )
 
-
-import Array exposing (Array)
-import Bitwise exposing (shiftRightBy)
 import List.Extra exposing (getAt)
-
-
-import PixelInfo exposing (PixelInfo)
 
 
 type Pixel
@@ -33,26 +27,22 @@ blank = Blank
 
 rgb : Int -> Int -> Int -> Pixel
 rgb r g b =
-  [r, g, b, 255] |> fromList
+  fromList [r, g, b, 255]
 
 
 rgba : Int -> Int -> Int -> Int -> Pixel
 rgba r g b a =
-  [r, g, b, a] |> fromList
+  fromList [r, g, b, a]
 
 
 grayscale : Int -> Pixel
 grayscale  i =
-  [i, i, i, 255] |> fromList
+  fromList [i, i, i, 255]
 
 
 grayscaleAlpha : Int -> Int -> Pixel
 grayscaleAlpha  i a =
-  [i, i, i, a] |> fromList
-
-
-fromInt : Int -> Pixel
-fromInt = Pixel
+  fromList [i, i, i, a]
 
 
 toList : Pixel -> List Int
@@ -86,22 +76,22 @@ b8 = 2^8
 
 red : Pixel -> Int
 red pixel =
-  toList pixel |> getAt 0 |> Maybe.withDefault -1
+  toList pixel |> getAt 0 |> Maybe.withDefault 0
 
 
 green : Pixel -> Int
 green pixel =
-  toList pixel |> getAt 1 |> Maybe.withDefault -1
+  toList pixel |> getAt 1 |> Maybe.withDefault 0
 
 
 blue : Pixel -> Int
 blue pixel =
-  toList pixel |> getAt 2 |> Maybe.withDefault -1
+  toList pixel |> getAt 2 |> Maybe.withDefault 0
 
 
 alpha : Pixel -> Int
 alpha pixel =
-  toList pixel |> getAt 3 |> Maybe.withDefault -1
+  toList pixel |> getAt 3 |> Maybe.withDefault 0
 
 
 fromList : List Int -> Pixel

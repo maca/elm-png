@@ -10,7 +10,7 @@ module PixelInfo exposing
   )
 
 
-import Bytes.Encode as Encode exposing (Encoder, sequence, unsignedInt8)
+import Bytes.Encode exposing (Encoder, sequence, unsignedInt8)
 import Bytes.Decode as Decode exposing (Decoder)
 
 
@@ -68,7 +68,7 @@ channels (PixelInfo mode _) =
 
 byteCount : PixelInfo -> Int
 byteCount info =
-  (bitDepth info) * (channels info) // 8
+  bitDepth info * channels info // 8
 
 
 encoder : PixelInfo -> Encoder

@@ -46,7 +46,7 @@ passOffset pass =
 bitShift : Int -> Int -> Int -> Int
 bitShift length shift offset =
   shiftRightBy shift
-    (length - offset - 1 + (shiftLeftBy shift 1))
+    (length - offset - 1 + shiftLeftBy shift 1)
 
 
 mergePasses : Dimensions -> List Image -> Image

@@ -3,7 +3,6 @@ module Chunk exposing
 
 
 import Bytes exposing (Bytes)
-import Flate exposing (crc32)
 import PixelInfo exposing (PixelInfo)
 
 
