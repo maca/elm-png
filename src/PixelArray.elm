@@ -33,6 +33,7 @@ initialize pixelInfo ln =
   makePixels channels (pixelArrayHelp bitDepth) Array.empty list
 
 
+keepSignificant : List Int -> List Int -> List Int
 keepSignificant acc xs =
   case List.take 2 xs of
     [ byte, _ ] ->
