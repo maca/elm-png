@@ -81,26 +81,37 @@ update msg model =
       )
 
     GotBytes [bytes] ->
-      case Png.fromBytes bytes of
-        Just png ->
-          let
-            -- _ = Debug.log "originalBytes" bytes
-            -- _ = Debug.log "png" png
-            -- _ = Debug.log "image" <| Png.toImage png
-            -- _ = Debug.log "image2"
-            --     <| Maybe.map (Png.fromImage >> Png.toImage)
-            --     <| Png.toImage png
+      let
+          _ = Png.fromBytes bytes
+              |> Debug.log "generating image"
+              |> Maybe.map Png.toImage
+              |> Debug.log "image"
+            -- url =
+            --   Png.toImage png
+            --     |> Maybe.map (Png.fromImage)
+            --     -- |> Maybe.withDefault ""
 
-            url =
-              Png.toImage png
-                |> Maybe.map (Png.fromImage >> Png.toUrl)
-                |> Maybe.withDefault ""
+      in
+      ( model, Cmd.none )
+      -- case Png.fromBytes bytes of
+      --   Just png ->
+      --     let
+      --       -- _ = Debug.log "originalBytes" bytes
+      --       -- _ = Debug.log "image" <| Png.toImage png
+      --       -- _ = Debug.log "image2"
+      --       --     <| Maybe.map (Png.fromImage >> Png.toImage)
+      --       --     <| Png.toImage png
 
-          in
-          ( { model | url = url }, Cmd.none )
+      --       url =
+      --         Png.toImage png
+      --           |> Maybe.map (Png.fromImage >> Png.toUrl)
+      --           |> Maybe.withDefault ""
 
-        Nothing ->
-          ( model, Cmd.none )
+      --     in
+      --     ( { model | url = url }, Cmd.none )
+
+      --   Nothing ->
+      --     ( model, Cmd.none )
 
     GotBytes _ ->
       ( model, Cmd.none )

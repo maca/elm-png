@@ -46,16 +46,15 @@ toBytes (Png chunks) =
   sequence [ Signature.encoder, chunksEncoder chunks ] |> encode
 
 
-toImage : Png -> Maybe Image
+-- toImage : Png -> Maybe Image
 toImage png =
   case ihdr png of
     Just { dimensions, pixelInfo, interlaced } ->
       let
           decoder =
-            if interlaced then
-              deinterlace pixelInfo dimensions
-
-            else
+            -- if interlaced then
+            --   deinterlace pixelInfo dimensions
+            -- else
               imageDecoder pixelInfo dimensions
       in
       imageData png |> Maybe.andThen (Decode.decode decoder)
@@ -69,17 +68,17 @@ ihdr (Png chunks) =
   List.head chunks |> Maybe.andThen Chunk.ihdrData
 
 
-deinterlace : PixelInfo -> Dimensions -> Decoder Image
-deinterlace pixelInfo dimensions =
-  let
-      passDecoder n =
-        imageDecoder pixelInfo (Adam7.passDimensions n dimensions)
-  in
-  iterate (List.range 0 6) passDecoder
-    |> Decode.andThen (mergePasses dimensions >> Decode.succeed)
+-- deinterlace : PixelInfo -> Dimensions -> Decoder Image
+-- deinterlace pixelInfo dimensions =
+--   let
+--       passDecoder n =
+--         imageDecoder pixelInfo (Adam7.passDimensions n dimensions)
+--   in
+--   iterate (List.range 0 6) passDecoder
+--     |> Decode.andThen (mergePasses dimensions >> Decode.succeed)
 
 
-imageDecoder : PixelInfo -> Dimensions -> Decoder Image
+-- imageDecoder : PixelInfo -> Dimensions -> Decoder Image
 imageDecoder pixelInfo ({ height } as dimensions) =
   let
       pixels ln acc =
@@ -92,10 +91,12 @@ imageDecoder pixelInfo ({ height } as dimensions) =
           >> Decode.succeed
   in
   list height (lineDecoder dimensions pixelInfo)
-    |> Decode.andThen process
+    -- |> Decode.andThen process
 
 
-lineDecoder : Dimensions -> PixelInfo -> Decoder (Filter, List Int)
+
+
+-- lineDecoder : Dimensions -> PixelInfo -> Decoder (Filter, List Int)
 lineDecoder { width } pixelInfo =
   Decode.map2 Tuple.pair
     (Filter.decoder pixelInfo)
@@ -107,7 +108,9 @@ imageData (Png chunks) =
   List.filterMap (Chunk.imageData >> Maybe.map Encode.bytes) chunks
     |> sequence
     |> encode
+    |> Debug.log "inflating"
     |> inflateZlib
+    |> Debug.log "inflated"
 
 
 pngDecoder : Decoder Png
